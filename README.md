@@ -1,4 +1,4 @@
-🎓 TruckTrack Akademi: Eğitim Müfredatı (GitHub Tamamlandı)
+🎓 TruckTrack Akademi: Eğitim Müfredatı (Fonksiyonlar Tamamlandı)
 Faz 1: Hazırlık ve Görsel Giriş
 [X] Ders 1: Alet Çantası: VS Code ve Flutter Kurulumu.
 
@@ -13,7 +13,7 @@ Faz 2: Yazılımın Alfabesi ve Güvenlik
 
 [X] Ders 6: GitHub Entegrasyonu: Kodları buluta yedekleme ve sürüm kontrolü.
 
-[ ] Ders 7: Fonksiyonlar: C# servislerindeki o hesaplama mantığını Dart'a tercüme.
+[X] Ders 7: Fonksiyonlar: C# servislerindeki o hesaplama mantığını Dart'a tercüme.
 
 Faz 3: Finansal Motor (Mobil Taraf)
 [ ] Ders 8: SalaryScale: Maaş basamaklarını (Step) modele dökme.
