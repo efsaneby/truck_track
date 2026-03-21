@@ -15,6 +15,18 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
   bool isWorkActive = false; // Mesai şu an açık mı?
   bool isStayActive = false; // Konaklama şu an açık mı?
   String statusMessage = "Henüz iş başı yapılmadı";
+  String stayMessage = "Konaklama kapali";
+
+  // 1. Fonksiyonu Tanımlıyoruz
+  double maasHesapla(double calisilanSaat, double saatlikUcret) {
+    double toplam = calisilanSaat * saatlikUcret;
+    return toplam; // Sonucu dışarı gönder
+  }
+
+  double harcirahHesapla(double konaklamaGunu, double gunlukHarcirah) {
+    double toplam = konaklamaGunu * gunlukHarcirah;
+    return toplam; // Sonucu dışarı gönder
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -42,11 +54,10 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
             InkWell(
               onTap: () {
                 setState(() {
-                  // setState: "Flutter, bak bir şeyler değişti, ekranı tazele!" demek.
-                  isWorkActive =
-                      !isWorkActive; // true ise false yap, false ise true yap.
+                  isWorkActive = !isWorkActive;
+                  double kazanc = maasHesapla(8, 15.50);
                   statusMessage = isWorkActive
-                      ? "Mesai Devam Ediyor..."
+                      ? "Mesai Basladi. (Tahmini kazanc: €$kazanc)"
                       : "Mesai Durduruldu";
                 });
               },
@@ -75,12 +86,14 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
             InkWell(
               onTap: () {
                 setState(() {
-                  isStayActive = !isStayActive; // Durumu tersine çevir
-                  // İŞTE BURASI IF-ELSE MANTIĞI:
-                  if (isStayActive == true) {
-                    print("Harcırah sayacı başladı.");
+                  isStayActive = !isStayActive;
+                  double gunlukStandart = 40.0;
+                  double toplamHarcirah = harcirahHesapla(1, gunlukStandart);
+                  if (isStayActive) {
+                    stayMessage =
+                        "KONAKLAMA AÇIK! (Harcırah: $toplamHarcirah €)";
                   } else {
-                    print("Harcırah sayacı durduruldu.");
+                    stayMessage = "Konaklama Durduruldu.";
                   }
                 });
               },
@@ -97,7 +110,7 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
                 ),
                 child: Center(
                   child: Text(
-                    isStayActive ? "KONAKLAMA AÇIK" : "KONAKLAMA KAPALI",
+                    stayMessage,
                     style: const TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
