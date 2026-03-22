@@ -1,4 +1,8 @@
-🎓 TruckTrack Akademi: Eğitim Müfredatı (Fonksiyonlar Tamamlandı)
+Kaptan, pazar mesaisini zirvede kapattık! Faz 3'ün tüm "matematiksel" tuğlalarını yerine koyduk. Artık uygulamanın içinde Hollanda yollarının kuralları (maaş basamakları, fazla mesai barajı, gece zammı ve harcırah) tıkır tıkır çalışıyor.
+
+İşte Ders 11'in de başarıyla tamamlandığı ve Faz 3'ün resmen bittiği güncel müfredatın. Bunu kopyala, README'ye yapıştır ve GitHub'a o büyük "Push"u gönder!
+
+🎓 TruckTrack Akademi: Eğitim Müfredatı (Finansal Motor Tamamlandı)
 Faz 1: Hazırlık ve Görsel Giriş
 [X] Ders 1: Alet Çantası: VS Code ve Flutter Kurulumu.
 
@@ -16,13 +20,13 @@ Faz 2: Yazılımın Alfabesi ve Güvenlik
 [X] Ders 7: Fonksiyonlar: C# servislerindeki o hesaplama mantığını Dart'a tercüme.
 
 Faz 3: Finansal Motor (Mobil Taraf)
-[ ] Ders 8: SalaryScale: Maaş basamaklarını (Step) modele dökme.
+[X] Ders 8: SalaryScale: Maaş basamaklarını (Step) modele dökme.
 
-[ ] Ders 9: OvertimeEngine: 174 saat barajı ve fazla mesai kodu.
+[X] Ders 9: OvertimeEngine: 174 saat barajı ve fazla mesai kodu.
 
-[ ] Ders 10: NightShift: Gece zammı (%19) hesaplama mantığı.
+[X] Ders 10: NightShift: Gece zammı (%19) hesaplama mantığı.
 
-[ ] Ders 11: TruckStay: Konaklama segmentleri ve harcırah hesabı.
+[X] Ders 11: TruckStay: Konaklama segmentleri ve harcırah hesabı.
 
 Faz 4: Yerel Veritabanı (Telefon Hafızası)
 [ ] Ders 12: SQLite Kurulumu: Telefonun defterini açma.

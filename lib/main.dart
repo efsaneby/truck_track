@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:truck_track/models/app_data.dart';
+import 'package:truck_track/models/salary_model.dart';
+import 'package:truck_track/services/calculator_service.dart';
 
 void main() {
   runApp(const TruckTrackApp());
@@ -16,46 +19,6 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
   bool isStayActive = false; // Konaklama şu an açık mı?
   String statusMessage = "Henüz iş başı yapılmadı";
   String stayMessage = "Konaklama kapali";
-
-  List<SalaryStep> maasTablosu = [
-    SalaryStep(basamakAdi: "D0", saatlikUcret: 15.10),
-    SalaryStep(basamakAdi: "D6", saatlikUcret: 16.50),
-    SalaryStep(basamakAdi: "E0", saatlikUcret: 17.20),
-  ];
-
-  SalaryStep seciliBasamak = SalaryStep(basamakAdi: "D6", saatlikUcret: 16.50);
-
-  double maasHesapla(double calisilanSaat, double saatlikUcret) {
-    double toplam = calisilanSaat * saatlikUcret;
-    return toplam; // Sonucu dışarı gönder
-  }
-
-  double harcirahHesapla(double konaklamaGunu, double gunlukHarcirah) {
-    double toplam = konaklamaGunu * gunlukHarcirah;
-    return toplam; // Sonucu dışarı gönder
-  }
-
-  double fazlaMesaiHesapla(double toplamSaat, double saatlikUcret) {
-    double normalBaraj = 174.0;
-    double fazlaMesaiCarpani = 1.30; // %130
-
-    if (toplamSaat <= normalBaraj) {
-      return toplamSaat * saatlikUcret;
-    } else {
-      double normalKazanc = normalBaraj * saatlikUcret;
-      double fazlaMesaiSaati = toplamSaat - normalBaraj;
-      double fazlaMesaiKazanci =
-          fazlaMesaiSaati * (saatlikUcret * fazlaMesaiCarpani);
-
-      return normalKazanc + fazlaMesaiKazanci;
-    }
-  }
-
-  double geceZammiHesapla(double geceSaati, double saatlikUcret) {
-    double geceCarpani = 0.19; // %19 ek ödeme oranı
-    // Formül: Gece Saati * (Saatlik Ücret * 0.19)
-    return geceSaati * (saatlikUcret * geceCarpani);
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -86,13 +49,13 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
                   isWorkActive = !isWorkActive;
                   double aylikToplam = 190;
                   double geceMesaisi = 10;
-                  double anaKazanc = fazlaMesaiHesapla(
+                  double anaKazanc = CalculatorService.fazlaMesaiHesapla(
                     aylikToplam,
-                    seciliBasamak.saatlikUcret,
+                    AppData.varsayilanBasamak.saatlikUcret,
                   );
-                  double geceKazanci = geceZammiHesapla(
+                  double geceKazanci = CalculatorService.geceZammiHesapla(
                     geceMesaisi,
-                    seciliBasamak.saatlikUcret,
+                    AppData.varsayilanBasamak.saatlikUcret,
                   );
                   double toplamKazanc = anaKazanc + geceKazanci;
                   statusMessage = isWorkActive
@@ -126,11 +89,18 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
               onTap: () {
                 setState(() {
                   isStayActive = !isStayActive;
-                  double gunlukStandart = 40.0;
-                  double toplamHarcirah = harcirahHesapla(1, gunlukStandart);
+                  int toplamGun = 4;
+                  bool pazarGunuMu = true;
+                  bool aksamYemegiDahilMi = true;
+                  double netHarcirah =
+                      CalculatorService.harcirahHesaplaGercekci(
+                        tamGunSayisi: toplamGun,
+                        haftaSonuMu: pazarGunuMu,
+                        aksamYemegiDahilMi: aksamYemegiDahilMi,
+                      );
                   if (isStayActive) {
                     stayMessage =
-                        "KONAKLAMA AÇIK! (Harcırah: $toplamHarcirah €)";
+                        "KONAKLAMA AÇIK! (Harcırah: €${netHarcirah.toStringAsFixed(2)})";
                   } else {
                     stayMessage = "Konaklama Durduruldu.";
                   }
@@ -164,12 +134,4 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
       ),
     );
   }
-}
-
-// Şoför Maaş Basamakları Modeli
-class SalaryStep {
-  final String basamakAdi; // Örn: "D6"
-  final double saatlikUcret; // Örn: 16.20
-
-  SalaryStep({required this.basamakAdi, required this.saatlikUcret});
 }
