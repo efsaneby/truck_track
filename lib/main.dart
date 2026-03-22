@@ -17,7 +17,14 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
   String statusMessage = "Henüz iş başı yapılmadı";
   String stayMessage = "Konaklama kapali";
 
-  // 1. Fonksiyonu Tanımlıyoruz
+  List<SalaryStep> maasTablosu = [
+    SalaryStep(basamakAdi: "D0", saatlikUcret: 15.10),
+    SalaryStep(basamakAdi: "D6", saatlikUcret: 16.50),
+    SalaryStep(basamakAdi: "E0", saatlikUcret: 17.20),
+  ];
+
+  SalaryStep seciliBasamak = SalaryStep(basamakAdi: "D6", saatlikUcret: 16.50);
+
   double maasHesapla(double calisilanSaat, double saatlikUcret) {
     double toplam = calisilanSaat * saatlikUcret;
     return toplam; // Sonucu dışarı gönder
@@ -26,6 +33,28 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
   double harcirahHesapla(double konaklamaGunu, double gunlukHarcirah) {
     double toplam = konaklamaGunu * gunlukHarcirah;
     return toplam; // Sonucu dışarı gönder
+  }
+
+  double fazlaMesaiHesapla(double toplamSaat, double saatlikUcret) {
+    double normalBaraj = 174.0;
+    double fazlaMesaiCarpani = 1.30; // %130
+
+    if (toplamSaat <= normalBaraj) {
+      return toplamSaat * saatlikUcret;
+    } else {
+      double normalKazanc = normalBaraj * saatlikUcret;
+      double fazlaMesaiSaati = toplamSaat - normalBaraj;
+      double fazlaMesaiKazanci =
+          fazlaMesaiSaati * (saatlikUcret * fazlaMesaiCarpani);
+
+      return normalKazanc + fazlaMesaiKazanci;
+    }
+  }
+
+  double geceZammiHesapla(double geceSaati, double saatlikUcret) {
+    double geceCarpani = 0.19; // %19 ek ödeme oranı
+    // Formül: Gece Saati * (Saatlik Ücret * 0.19)
+    return geceSaati * (saatlikUcret * geceCarpani);
   }
 
   @override
@@ -55,9 +84,19 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
               onTap: () {
                 setState(() {
                   isWorkActive = !isWorkActive;
-                  double kazanc = maasHesapla(8, 15.50);
+                  double aylikToplam = 190;
+                  double geceMesaisi = 10;
+                  double anaKazanc = fazlaMesaiHesapla(
+                    aylikToplam,
+                    seciliBasamak.saatlikUcret,
+                  );
+                  double geceKazanci = geceZammiHesapla(
+                    geceMesaisi,
+                    seciliBasamak.saatlikUcret,
+                  );
+                  double toplamKazanc = anaKazanc + geceKazanci;
                   statusMessage = isWorkActive
-                      ? "Mesai Basladi. (Tahmini kazanc: €$kazanc)"
+                      ? "Mesai Basladi. (Tahmini kazanc: €${toplamKazanc.toStringAsFixed(2)})"
                       : "Mesai Durduruldu";
                 });
               },
@@ -125,4 +164,12 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
       ),
     );
   }
+}
+
+// Şoför Maaş Basamakları Modeli
+class SalaryStep {
+  final String basamakAdi; // Örn: "D6"
+  final double saatlikUcret; // Örn: 16.20
+
+  SalaryStep({required this.basamakAdi, required this.saatlikUcret});
 }
