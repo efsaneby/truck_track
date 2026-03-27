@@ -1,59 +1,55 @@
-Kaptan, pazar mesaisini zirvede kapattık! Faz 3'ün tüm "matematiksel" tuğlalarını yerine koyduk. Artık uygulamanın içinde Hollanda yollarının kuralları (maaş basamakları, fazla mesai barajı, gece zammı ve harcırah) tıkır tıkır çalışıyor.
+🎓 TruckTrack Akademi: Eğitim Müfredatı
+✅ Faz 1: Hazırlık ve Görsel Giriş
+[x] Ders 1: Alet Çantası: VS Code ve Flutter Kurulumu.
 
-İşte Ders 11'in de başarıyla tamamlandığı ve Faz 3'ün resmen bittiği güncel müfredatın. Bunu kopyala, README'ye yapıştır ve GitHub'a o büyük "Push"u gönder!
+[x] Ders 2: İlk Tuğla: Boş proje ve telefonda çalıştırma.
 
-🎓 TruckTrack Akademi: Eğitim Müfredatı (Finansal Motor Tamamlandı)
-Faz 1: Hazırlık ve Görsel Giriş
-[X] Ders 1: Alet Çantası: VS Code ve Flutter Kurulumu.
+[x] Ders 3: Renklerin Dansı: Turuncu (Mesai) ve Mavi (Konaklama) kutuları.
 
-[X] Ders 2: İlk Tuğla: Boş proje ve telefonda çalıştırma.
+✅ Faz 2: Yazılımın Alfabesi ve Güvenlik
+[x] Ders 4: Değişkenler: Maaşımızı ve saatimizi hafızada tutma.
 
-[X] Ders 3: Renklerin Dansı: Turuncu (Mesai) ve Mavi (Konaklama) kutuları.
+[x] Ders 5: Karar Yapıları (If-Else): "Hafta sonu ise %200 hesapla".
 
-Faz 2: Yazılımın Alfabesi ve Güvenlik
-[X] Ders 4: Değişkenler: Maaşımızı ve saatimizi hafızada tutma.
+[x] Ders 6: GitHub Entegrasyonu: Kodları buluta yedekleme ve sürüm kontrolü.
 
-[X] Ders 5: Karar Yapıları (If-Else): "Hafta sonu ise %200 hesapla".
+[x] Ders 7: Fonksiyonlar: C# servislerindeki o hesaplama mantığını Dart'a tercüme.
 
-[X] Ders 6: GitHub Entegrasyonu: Kodları buluta yedekleme ve sürüm kontrolü.
+✅ Faz 3: Finansal Motor (Mobil Taraf) - TAMAMLANDI 🏆
+[x] Ders 8: SalaryScale: Maaş basamaklarını (Step) modele dökme.
 
-[X] Ders 7: Fonksiyonlar: C# servislerindeki o hesaplama mantığını Dart'a tercüme.
+[x] Ders 9: OvertimeEngine: 174 saat barajı ve fazla mesai kodu.
 
-Faz 3: Finansal Motor (Mobil Taraf)
-[X] Ders 8: SalaryScale: Maaş basamaklarını (Step) modele dökme.
+[x] Ders 10: NightShift: Gece zammı (%19) hesaplama mantığı.
 
-[X] Ders 9: OvertimeEngine: 174 saat barajı ve fazla mesai kodu.
+[x] Ders 11: TruckStay: Konaklama segmentleri ve harcırah hesabı.
 
-[X] Ders 10: NightShift: Gece zammı (%19) hesaplama mantığı.
+✅ Faz 4: Yerel Veritabanı (Telefon Hafızası) - TAMAMLANDI 🏆
+[x] Ders 12: SQLite Kurulumu: sqflite ile telefonun dijital defterini açtık.
 
-[X] Ders 11: TruckStay: Konaklama segmentleri ve harcırah hesabı.
+[x] Ders 13: Kaydet/Oku: Butonlarla deftere veri işleme ve anlık senkronizasyon.
 
-Faz 4: Yerel Veritabanı (Telefon Hafızası)
-[ ] Ders 12: SQLite Kurulumu: Telefonun defterini açma.
+[x] Ders 14: Manuel Düzenleme: Kayıtları liste halinde ekrana dökme (ListView).
 
-[ ] Ders 13: Kaydet/Oku: Butonlarla deftere veri işleme.
-
-[ ] Ders 14: Manuel Düzenleme: Kayıt silme ve güncelleme ekranları.
-
-Faz 5: Gelişmiş UI (Dashboard & Defter)
+🛠️ Faz 5: Gelişmiş UI (Dashboard & Defter) - SIRADAKİ DURAK
 [ ] Ders 15: Canlı Sayaç: Ekranda akan zaman ve para.
 
-[ ] Ders 16: Smart Timeline: Renkli ve sade liste görünümü.
+[ ] Ders 16: Smart Timeline: Kaydır-sil (Dismissible) ve modern liste görünümü.
 
 [ ] Ders 17: Deduction Manager: Kullanıcının kendi kesinti kurallarını eklemesi.
 
-Faz 6: SIFIRDAN BACKEND (Node.js & TypeScript)
+🚀 Faz 6: SIFIRDAN BACKEND (Node.js & TypeScript)
 [ ] Ders 18: Node.js Dünyasına Giriş: Backend projesini ayağa kaldırma.
 
-[ ] Ders 19: Veritabanı Tasarımı: PostgreSQL (Bulut veritabanı) kurulumu.
+[ ] Ders 19: Veritabanı Tasarımı: PostgreSQL kurulumu.
 
-[ ] Ders 20: API Uçları (Endpoints): Telefonun internetle veri göndermesi.
+[ ] Ders 20: API Uçları (Endpoints): Veri gönderimi.
 
-[ ] Ders 21: Güvenlik: JWT ile "Sadece ben girebilirim" kapısını yapma.
+[ ] Ders 21: Güvenlik: JWT ile kimlik doğrulama.
 
-Faz 7: Final ve Raporlama
-[ ] Ders 22: Sync Logic: İnternet gelince verileri otomatik yedekleme.
+📋 Faz 7: Final ve Raporlama
+[ ] Ders 22: Sync Logic: Otomatik yedekleme.
 
 [ ] Ders 23: PDF Engine: Aylık maaş raporu oluşturma.
 
-[ ] Ders 24: Yayın Hazırlığı: İkonlar ve Mağaza ayarları.
+[ ] Ders 24: Yayın Hazırlığı: Mağaza ayarları.

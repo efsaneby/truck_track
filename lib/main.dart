@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:truck_track/models/app_data.dart';
-import 'package:truck_track/models/salary_model.dart';
 import 'package:truck_track/services/calculator_service.dart';
+import 'package:truck_track/services/db_helper.dart';
 
 void main() {
   runApp(const TruckTrackApp());
@@ -15,10 +15,25 @@ class TruckTrackApp extends StatefulWidget {
 }
 
 class _TruckTrackAppState extends State<TruckTrackApp> {
-  bool isWorkActive = false; // Mesai şu an açık mı?
-  bool isStayActive = false; // Konaklama şu an açık mı?
+  bool isWorkActive = false;
+  bool isStayActive = false;
   String statusMessage = "Henüz iş başı yapılmadı";
-  String stayMessage = "Konaklama kapali";
+  String stayMessage = "Konaklama kapalı";
+  List<Map<String, dynamic>> tumKayitlar = [];
+
+  @override
+  void initState() {
+    super.initState();
+    listeyiGuncelle(); // Uygulama açılır açılmaz defteri oku
+  }
+
+  // Defterdeki her şeyi tazeleyip ekrana basan fonksiyon
+  Future<void> listeyiGuncelle() async {
+    final veriler = await DbHelper.instance.tumMesaileriGetir();
+    setState(() {
+      tumKayitlar = veriler;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -30,42 +45,58 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
           title: const Text(
             "TruckTrack Dashboard",
             style: TextStyle(
-              color: Colors.black87, // Yazıyı koyu yapalım
-              fontWeight: FontWeight.w900, // Daha kalın, tok bir yazı
-              letterSpacing:
-                  1.2, // Harflerin arasını biraz açalım (modern durur)
+              color: Colors.black87,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1.2,
             ),
           ),
-          centerTitle: true, // Başlığı ortaya alalım
-          backgroundColor: Colors.white, // Arka planı bembeyaz yapalım
-          elevation: 0, // AppBar'ın altındaki o çirkin gölgeyi kaldıralım
+          centerTitle: true,
+          backgroundColor: Colors.white,
+          elevation: 0,
         ),
         body: Column(
           children: [
             // TURUNCU KUTU (MESAI)
             InkWell(
-              onTap: () {
+              onTap: () async {
+                // Önce hesaplamaları yapalım
+                double aylikToplam = 190;
+                double geceMesaisi = 10;
+                double anaKazanc = CalculatorService.fazlaMesaiHesapla(
+                  aylikToplam,
+                  AppData.varsayilanBasamak.saatlikUcret,
+                );
+                double geceKazanci = CalculatorService.geceZammiHesapla(
+                  geceMesaisi,
+                  AppData.varsayilanBasamak.saatlikUcret,
+                );
+                double toplamKazanc = anaKazanc + geceKazanci;
+
                 setState(() {
                   isWorkActive = !isWorkActive;
-                  double aylikToplam = 190;
-                  double geceMesaisi = 10;
-                  double anaKazanc = CalculatorService.fazlaMesaiHesapla(
-                    aylikToplam,
-                    AppData.varsayilanBasamak.saatlikUcret,
-                  );
-                  double geceKazanci = CalculatorService.geceZammiHesapla(
-                    geceMesaisi,
-                    AppData.varsayilanBasamak.saatlikUcret,
-                  );
-                  double toplamKazanc = anaKazanc + geceKazanci;
                   statusMessage = isWorkActive
-                      ? "Mesai Basladi. (Tahmini kazanc: €${toplamKazanc.toStringAsFixed(2)})"
+                      ? "Mesai Başladı. (Tahmini: €${toplamKazanc.toStringAsFixed(2)})"
                       : "Mesai Durduruldu";
                 });
+
+                // Eğer mesai başlatıldıysa deftere yazalım
+                if (isWorkActive) {
+                  Map<String, dynamic> yeniKayit = {
+                    'tarih': DateTime.now().toString(),
+                    'toplamSaat': aylikToplam,
+                    'geceSaati': geceMesaisi,
+                    'konaklamaGun': 0,
+                    'kazanc': double.parse(toplamKazanc.toStringAsFixed(2)),
+                  };
+
+                  await DbHelper.instance.mesaiKaydet(yeniKayit);
+                  print("✅ Mesai Deftere Kaydedildi!");
+                  listeyiGuncelle(); // Listeyi anında tazele
+                }
               },
               child: Container(
                 margin: const EdgeInsets.all(20),
-                height: 150,
+                height: 120, // Biraz daralttım liste daha iyi görünsün diye
                 width: double.infinity,
                 decoration: BoxDecoration(
                   color: isWorkActive ? Colors.green : Colors.orange,
@@ -74,8 +105,9 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
                 child: Center(
                   child: Text(
                     statusMessage,
-                    style: TextStyle(
-                      fontSize: 24,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 20,
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
                     ),
@@ -89,44 +121,81 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
               onTap: () {
                 setState(() {
                   isStayActive = !isStayActive;
-                  int toplamGun = 4;
-                  bool pazarGunuMu = true;
-                  bool aksamYemegiDahilMi = true;
                   double netHarcirah =
                       CalculatorService.harcirahHesaplaGercekci(
-                        tamGunSayisi: toplamGun,
-                        haftaSonuMu: pazarGunuMu,
-                        aksamYemegiDahilMi: aksamYemegiDahilMi,
+                        tamGunSayisi: 4,
+                        haftaSonuMu: true,
+                        aksamYemegiDahilMi: true,
                       );
-                  if (isStayActive) {
-                    stayMessage =
-                        "KONAKLAMA AÇIK! (Harcırah: €${netHarcirah.toStringAsFixed(2)})";
-                  } else {
-                    stayMessage = "Konaklama Durduruldu.";
-                  }
+                  stayMessage = isStayActive
+                      ? "KONAKLAMA AÇIK! (€${netHarcirah.toStringAsFixed(2)})"
+                      : "Konaklama Durduruldu.";
                 });
               },
               child: Container(
                 margin: const EdgeInsets.symmetric(horizontal: 20),
-                height: 150,
+                height: 100,
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  color: isStayActive
-                      ? Colors.green
-                      : Colors
-                            .blue[900], // Aktifse daha canlı bir mavi, değilse koyu mavi
+                  color: isStayActive ? Colors.green : Colors.blue[900],
                   borderRadius: BorderRadius.circular(15),
                 ),
                 child: Center(
                   child: Text(
                     stayMessage,
+                    textAlign: TextAlign.center,
                     style: const TextStyle(
-                      fontSize: 24,
+                      fontSize: 20,
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
                     ),
                   ),
                 ),
+              ),
+            ),
+
+            const Padding(
+              padding: EdgeInsets.only(top: 20, left: 20),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  "Son Kayıtlar",
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+
+            // LİSTE GÖRÜNÜMÜ
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.all(10),
+                itemCount: tumKayitlar.length,
+                itemBuilder: (context, index) {
+                  final kayit = tumKayitlar[index];
+                  return Card(
+                    elevation: 2,
+                    margin: const EdgeInsets.symmetric(
+                      vertical: 5,
+                      horizontal: 10,
+                    ),
+                    child: ListTile(
+                      leading: const Icon(Icons.history, color: Colors.orange),
+                      title: Text(
+                        "Tarih: ${kayit['tarih'].toString().substring(0, 10)}",
+                      ),
+                      subtitle: Text(
+                        "Saat: ${kayit['toplamSaat']} | Gece: ${kayit['geceSaati']}",
+                      ),
+                      trailing: Text(
+                        "€${kayit['kazanc']}",
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green,
+                        ),
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
           ],

@@ -30,6 +30,9 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  sqflite: ^2.3.0        # Defterin kendisi
+  path_provider: ^2.1.1  # Defterin telefonda nerede duracağını bulan yardımcı
+  path: ^1.8.3           # Dosya yollarını düzenleyen araç  
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
