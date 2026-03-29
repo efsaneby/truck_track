@@ -56,4 +56,9 @@ class DbHelper {
     // Tarihe göre sıralı getir
     return await db.query('mesailer', orderBy: 'tarih DESC');
   }
+
+  Future<int> mesaiSil(int id) async {
+    final db = await instance.database;
+    return await db.delete('mesailer', where: 'id = ?', whereArgs: [id]);
+  }
 }

@@ -13,12 +13,10 @@ class CalculatorService {
   }) {
     double gunlukStandart = 53.0; // Örnek CAO rakamı
     double haftaSonuPrimi = 22.0; // Hafta sonu ekstrası
-    double yemekKesintisi = AppData.gunlukYemekBedeli; // Eğer yemek şirkettentse kesinti
 
     double toplam = tamGunSayisi * gunlukStandart;
 
     if (haftaSonuMu) toplam += haftaSonuPrimi;
-    if (aksamYemegiDahilMi) toplam -= yemekKesintisi;
 
     return toplam;
   }
