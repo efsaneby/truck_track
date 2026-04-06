@@ -320,25 +320,30 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
     DateTime tempDate = DateTime(basT.year, basT.month, basT.day);
     DateTime lastDate = DateTime(bitT.year, bitT.month, bitT.day);
 
+    // Saatleri formatlıyoruz: "08:30" gibi
+    String bS =
+        "${basS.hour.toString().padLeft(2, '0')}:${basS.minute.toString().padLeft(2, '0')}";
+    String sS =
+        "${bitS.hour.toString().padLeft(2, '0')}:${bitS.minute.toString().padLeft(2, '0')}";
+
     while (tempDate.isBefore(lastDate) || tempDate.isAtSameMomentAs(lastDate)) {
       String currentKey = DateFormat('yyyy-MM-dd').format(tempDate);
       double gSaat = 0;
+
       if (isWork) {
-        if (tempDate.isAtSameMomentAs(lastDate) &&
-            tempDate.isAtSameMomentAs(tempDate)) {
-          gSaat =
-              (bitS.hour + bitS.minute / 60.0) -
-              (basS.hour + basS.minute / 60.0) -
-              (mola / 60.0);
-        } else {
-          gSaat = 8.0;
-        } // Basit mantık ara günler için
+        // Saat farkı hesaplama
+        double baslangicOndalik = basS.hour + (basS.minute / 60.0);
+        double bitisOndalik = bitS.hour + (bitS.minute / 60.0);
+        gSaat = bitisOndalik - baslangicOndalik - (mola / 60.0);
       }
 
       await db.insert('mesailer', {
-        'tarih': "$currentKey 12:00:00",
-        'kazanc': isWork ? (gSaat * 13.0) : 45.0,
-        'toplamSaat': gSaat,
+        // BURASI KRİTİK: Tarihin yanına saati paketliyoruz
+        'tarih': "$currentKey [$bS-$sS]",
+        'kazanc': isWork
+            ? double.parse((gSaat * 13.0).toStringAsFixed(2))
+            : 45.0,
+        'toplamSaat': double.parse(gSaat.toStringAsFixed(2)),
         'konaklamaGun': isWork ? 0 : 1,
         'molaSuresi': isWork ? mola : 0,
         'geceSaati': 0.0,
@@ -385,25 +390,39 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
 
     for (var kayit in veriler) {
       String kTar = kayit['tarih']?.toString() ?? "";
-      if (kTar.startsWith(ayKey)) {
+
+      if (kTar.contains(ayKey)) {
         double kaz = (kayit['kazanc'] ?? 0.0).toDouble();
         double tSa = (kayit['toplamSaat'] ?? 0.0).toDouble();
         euroS += kaz;
         if (kayit['konaklamaGun'] == 0) saatS += tSa;
+
         String gKey = kTar.substring(0, 10);
+
+        // Paketi açıyoruz: "2026-04-06 [08:00-17:00]" -> "08:00-17:00"
+        String saatAraligi = "";
+        if (kTar.contains("[")) {
+          saatAraligi = kTar.split("[").last.replaceAll("]", "");
+        } else {
+          saatAraligi = "---"; // Eski kayıtlar için
+        }
+
         if (!geciciG.containsKey(gKey)) {
           geciciG[gKey] = {
             'tarih': gKey,
             'toplamMaas': 0.0,
             'toplamHarcirah': 0.0,
             'toplamSaat': 0.0,
+            'saatDetay': '',
             'hasHarcirah': false,
             'hasMaas': false,
           };
         }
+
         if (kayit['konaklamaGun'] == 0) {
           geciciG[gKey]!['toplamMaas'] += kaz;
           geciciG[gKey]!['toplamSaat'] += tSa;
+          geciciG[gKey]!['saatDetay'] = saatAraligi; // Artık gerçek saat burada
           geciciG[gKey]!['hasMaas'] = true;
         } else {
           geciciG[gKey]!['toplamHarcirah'] += kaz;
@@ -411,6 +430,7 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
         }
       }
     }
+
     int sonG = DateTime(_seciliAy.year, _seciliAy.month + 1, 0).day;
     setState(() {
       gunlukOzetlerMap = geciciG;
@@ -626,6 +646,7 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
         final gunKey = DateFormat('yyyy-MM-dd').format(tarihDT);
         final gunData = gunlukOzetlerMap[gunKey];
         bool isWk = tarihDT.weekday > 5;
+
         return Column(
           children: [
             Container(
@@ -649,7 +670,7 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
               child: Row(
                 children: [
                   Expanded(
-                    child: gunData != null && gunData['hasMaas']
+                    child: gunData != null && (gunData['hasMaas'] ?? false)
                         ? InkWell(
                             onLongPress: () => _gunuSilOnay(gunKey, true),
                             onTap: () => _guncellemePaneli(
@@ -660,7 +681,7 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
                             ),
                             child: _gunlukKart(
                               gunData['toplamMaas'],
-                              "${gunData['toplamSaat'].toStringAsFixed(1)} h",
+                              "${gunData['saatDetay']} (${gunData['toplamSaat'].toStringAsFixed(1)}h)",
                               Colors.orange,
                               true,
                             ),
@@ -669,7 +690,7 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
                   ),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: gunData != null && gunData['hasHarcirah']
+                    child: gunData != null && (gunData['hasHarcirah'] ?? false)
                         ? InkWell(
                             onLongPress: () => _gunuSilOnay(gunKey, false),
                             onTap: () => _guncellemePaneli(
