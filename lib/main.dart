@@ -19,16 +19,21 @@ class TruckTrackApp extends StatefulWidget {
 class _TruckTrackAppState extends State<TruckTrackApp> {
   bool isWorkActive = false;
   bool isStayActive = false;
+  bool isBreakActive = false;
+
   Map<String, Map<String, dynamic>> gunlukOzetlerMap = {};
   List<DateTime> ayinTumGunleri = [];
   DateTime _seciliAy = DateTime.now();
 
   Timer? _workTimer;
   Timer? _stayTimer;
-  double _anlikWorkKazanc = 0.0;
-  double _anlikStayKazanc = 0.0;
+
   int _workSaniye = 0;
   int _staySaniye = 0;
+  int _molaSaniye = 3600; // Standart 60 Dakika
+
+  double _anlikWorkKazanc = 0.0;
+  double _anlikStayKazanc = 0.0;
   double aylikToplamEuro = 0.0;
   double aylikToplamSaat = 0.0;
 
@@ -38,7 +43,7 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
     listeyiGuncelle();
   }
 
-  // --- GELİŞMİŞ ÇOKLU GÜN GÜNCELLEME PANELİ ---
+  // --- MANUEL GÜNCELLEME PANELİ ---
   void _guncellemePaneli(
     String gunKey,
     bool isWork,
@@ -49,7 +54,7 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
     DateTime bitisTarihi = DateTime.parse(gunKey);
     TimeOfDay baslangicSaat = const TimeOfDay(hour: 8, minute: 0);
     TimeOfDay bitisSaat = const TimeOfDay(hour: 17, minute: 0);
-    int molaDakika = 0;
+    int molaDakika = 60; // Manuel girişte varsayılan 60 dk
 
     showModalBottomSheet(
       context: context,
@@ -59,9 +64,6 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
       ),
       builder: (context) => StatefulBuilder(
         builder: (context, setPanelState) {
-          int gunFarki = bitisTarihi.difference(baslangicTarihi).inDays;
-          bool isCokluGun = gunFarki > 0;
-
           return Padding(
             padding: EdgeInsets.only(
               bottom: MediaQuery.of(context).viewInsets.bottom,
@@ -73,7 +75,7 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  isCokluGun ? "Çoklu Gün Seferi" : "$gunKey Düzenle",
+                  "$gunKey Düzenle",
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 18,
@@ -130,16 +132,54 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
                     }
                   },
                 ),
-                if (isWork)
-                  Slider(
-                    value: molaDakika.toDouble(),
-                    min: 0,
-                    max: 120,
-                    divisions: 8,
-                    label: "$molaDakika dk Mola",
-                    onChanged: (v) =>
-                        setPanelState(() => molaDakika = v.toInt()),
+                if (isWork) ...[
+                  const SizedBox(height: 10),
+                  const Text(
+                    "Mola Süresi",
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
                   ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      IconButton(
+                        icon: const Icon(
+                          Icons.remove_circle,
+                          color: Colors.red,
+                          size: 32,
+                        ),
+                        onPressed: () => setPanelState(() {
+                          if (molaDakika > 0) molaDakika--;
+                        }),
+                      ),
+                      Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 15),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 25,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[200],
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          "$molaDakika DK",
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(
+                          Icons.add_circle,
+                          color: Colors.green,
+                          size: 32,
+                        ),
+                        onPressed: () => setPanelState(() => molaDakika++),
+                      ),
+                    ],
+                  ),
+                ],
                 const SizedBox(height: 20),
                 Row(
                   children: [
@@ -171,7 +211,7 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
                           listeyiGuncelle();
                         },
                         child: const Text(
-                          "SEFERİ KAYDET",
+                          "KAYDET",
                           style: TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
@@ -190,109 +230,119 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
     );
   }
 
+  // --- CANLI SAYAÇ KONTROLLERİ ---
+  void _toggleWork() {
+    setState(() {
+      isWorkActive = !isWorkActive;
+      if (isWorkActive) {
+        _workSaniye = 0;
+        _molaSaniye = 3600; // Başlangıçta 60 dk hazır bekler
+        isBreakActive = false;
+        _workTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+          if (!isBreakActive) {
+            _workSaniye++;
+            setState(() {
+              _anlikWorkKazanc += CalculatorService.anlikSaniyelikKazancGetir(
+                isWork: true,
+                gecenSaniye: _workSaniye,
+              );
+            });
+          } else {
+            _molaSaniye++;
+          }
+        });
+      } else {
+        _workTimer?.cancel();
+        _kaydetVeSifirla(true);
+      }
+    });
+  }
+
+  void _toggleStay() {
+    setState(() {
+      isStayActive = !isStayActive;
+      if (isStayActive) {
+        _staySaniye = 0;
+        _stayTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+          _staySaniye++;
+          setState(() {
+            if (_staySaniye > 14400) _anlikStayKazanc += 40.0 / 86400.0;
+          });
+        });
+      } else {
+        _stayTimer?.cancel();
+        _kaydetVeSifirla(false);
+      }
+    });
+  }
+
+  // --- VERİTABANI İŞLEMLERİ ---
+  Future<void> _kaydetVeSifirla(bool isWork) async {
+    final db = await DbHelper.instance.database;
+    String bugunKey = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    int tip = isWork ? 0 : 1;
+
+    double toplamGecenSaat = (isWork ? _workSaniye : _staySaniye) / 3600.0;
+    double sonKazanc = isWork ? _anlikWorkKazanc : _anlikStayKazanc;
+
+    await DbHelper.instance.mesaiKaydet({
+      'tarih': DateTime.now().toString(),
+      'toplamSaat': double.parse(toplamGecenSaat.toStringAsFixed(2)),
+      'geceSaati': 0.0,
+      'konaklamaGun': tip,
+      'molaSuresi': isWork ? (_molaSaniye ~/ 60) : 0,
+      'kazanc': double.parse(sonKazanc.toStringAsFixed(2)),
+    });
+
+    setState(() {
+      if (isWork) {
+        _anlikWorkKazanc = 0.0;
+        _workSaniye = 0;
+        _molaSaniye = 3600;
+        isBreakActive = false;
+      } else {
+        _anlikStayKazanc = 0.0;
+        _staySaniye = 0;
+      }
+    });
+    listeyiGuncelle();
+  }
+
   Future<void> _cokluGunKaydet(
-    DateTime basTarih,
-    DateTime bitTarih,
-    TimeOfDay basSaat,
-    TimeOfDay bitSaat,
+    DateTime basT,
+    DateTime bitT,
+    TimeOfDay basS,
+    TimeOfDay bitS,
     bool isWork,
     int mola,
   ) async {
     final db = await DbHelper.instance.database;
-    // Saatleri tarihlere giydirelim
-    DateTime startDT = DateTime(
-      basTarih.year,
-      basTarih.month,
-      basTarih.day,
-      basSaat.hour,
-      basSaat.minute,
-    );
-    DateTime endDT = DateTime(
-      bitTarih.year,
-      bitTarih.month,
-      bitTarih.day,
-      bitSaat.hour,
-      bitSaat.minute,
-    );
-
-    DateTime tempDate = DateTime(basTarih.year, basTarih.month, basTarih.day);
-    DateTime lastDate = DateTime(bitTarih.year, bitTarih.month, bitTarih.day);
-
-    int toplamGunFarki = lastDate.difference(tempDate).inDays;
+    DateTime tempDate = DateTime(basT.year, basT.month, basT.day);
+    DateTime lastDate = DateTime(bitT.year, bitT.month, bitT.day);
 
     while (tempDate.isBefore(lastDate) || tempDate.isAtSameMomentAs(lastDate)) {
       String currentKey = DateFormat('yyyy-MM-dd').format(tempDate);
-      double gunlukKazanc = 0;
-      double gunlukSaat = 0;
-
+      double gSaat = 0;
       if (isWork) {
-        // --- DİREKSİYON HESABI ---
-        if (toplamGunFarki == 0) {
-          gunlukSaat =
-              (endDT.difference(startDT).inMinutes / 60.0) - (mola / 60.0);
-        } else if (tempDate.isAtSameMomentAs(
-          tempDate == basTarih ? tempDate : DateTime(0),
-        )) {
-          // İlk gün
-          gunlukSaat = 24.0 - (basSaat.hour + basSaat.minute / 60.0);
-        } else if (tempDate.isAtSameMomentAs(lastDate)) {
-          // Son gün
-          gunlukSaat = (bitSaat.hour + bitSaat.minute / 60.0);
+        if (tempDate.isAtSameMomentAs(lastDate) &&
+            tempDate.isAtSameMomentAs(tempDate)) {
+          gSaat =
+              (bitS.hour + bitS.minute / 60.0) -
+              (basS.hour + basS.minute / 60.0) -
+              (mola / 60.0);
         } else {
-          // Ara günler
-          gunlukSaat = 24.0;
-        }
-        gunlukKazanc = gunlukSaat * 13.0;
-      } else {
-        // --- HARCIRAH HESABI (2026 TABLO UYUMLU) ---
-        if (toplamGunFarki == 0) {
-          gunlukKazanc = CalculatorService.tekGunlukHarcirahHesapla(
-            basSaat.hour,
-            bitSaat.hour,
-          );
-          gunlukSaat = (endDT.difference(startDT).inMinutes / 60.0);
-        } else if (tempDate.year == basTarih.year &&
-            tempDate.month == basTarih.month &&
-            tempDate.day == basTarih.day) {
-          gunlukKazanc = CalculatorService.ilkGunTablo[basSaat.hour] ?? 0.0;
-          gunlukSaat = 24.0 - (basSaat.hour + basSaat.minute / 60.0);
-        } else if (tempDate.year == bitTarih.year &&
-            tempDate.month == bitTarih.month &&
-            tempDate.day == bitTarih.day) {
-          gunlukKazanc = CalculatorService.sonGunTablo[bitSaat.hour] ?? 0.0;
-          gunlukSaat = (bitSaat.hour + bitSaat.minute / 60.0);
-        } else {
-          gunlukKazanc = 65.04; // 2026 Tam gün (Tussendag)
-          gunlukSaat = 24.0;
-        }
+          gSaat = 8.0;
+        } // Basit mantık ara günler için
       }
 
-      int tip = isWork ? 0 : 1;
-      List<Map<String, dynamic>> mevcut = await db.query(
-        'mesailer',
-        where: "tarih LIKE ? AND konaklamaGun = ?",
-        whereArgs: ['$currentKey%', tip],
-      );
-
-      Map<String, dynamic> row = {
+      await db.insert('mesailer', {
         'tarih': "$currentKey 12:00:00",
-        'kazanc': double.parse(gunlukKazanc.toStringAsFixed(2)),
-        'toplamSaat': double.parse(gunlukSaat.toStringAsFixed(2)),
-        'konaklamaGun': tip,
+        'kazanc': isWork ? (gSaat * 13.0) : 45.0,
+        'toplamSaat': gSaat,
+        'konaklamaGun': isWork ? 0 : 1,
+        'molaSuresi': isWork ? mola : 0,
         'geceSaati': 0.0,
-      };
-
-      if (mevcut.isEmpty) {
-        await db.insert('mesailer', row);
-      } else {
-        await db.update(
-          'mesailer',
-          row,
-          where: "id = ?",
-          whereArgs: [mevcut.first['id']],
-        );
-      }
-
+      });
       tempDate = tempDate.add(const Duration(days: 1));
     }
   }
@@ -301,8 +351,8 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text("${isWork ? 'Direksiyon' : 'Konaklama'} Sil"),
-        content: const Text("Bu kayıt silinecek. Emin misiniz?"),
+        title: const Text("Kaydı Sil"),
+        content: const Text("Emin misiniz?"),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -316,7 +366,7 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
                 where: "tarih LIKE ? AND konaklamaGun = ?",
                 whereArgs: ['$gunKey%', isWork ? 0 : 1],
               );
-              if (mounted) Navigator.pop(context);
+              Navigator.pop(context);
               listeyiGuncelle();
             },
             child: const Text("SİL", style: TextStyle(color: Colors.red)),
@@ -328,23 +378,22 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
 
   Future<void> listeyiGuncelle() async {
     final veriler = await DbHelper.instance.tumMesaileriGetir();
-    double euroSayaci = 0.0;
-    double saatSayaci = 0.0;
-    Map<String, Map<String, dynamic>> geciciGruplama = {};
-    String seciliAyKey = DateFormat('yyyy-MM').format(_seciliAy);
+    double euroS = 0.0;
+    double saatS = 0.0;
+    Map<String, Map<String, dynamic>> geciciG = {};
+    String ayKey = DateFormat('yyyy-MM').format(_seciliAy);
 
     for (var kayit in veriler) {
-      String kayitTarih = kayit['tarih']?.toString() ?? "";
-      if (kayitTarih.startsWith(seciliAyKey)) {
-        double kazanc = (kayit['kazanc'] ?? 0.0).toDouble();
-        double tSaat = (kayit['toplamSaat'] ?? 0.0).toDouble();
-        euroSayaci += kazanc;
-        if (kayit['konaklamaGun'] == 0) saatSayaci += tSaat;
-
-        String gunKey = kayitTarih.substring(0, 10);
-        if (!geciciGruplama.containsKey(gunKey)) {
-          geciciGruplama[gunKey] = {
-            'tarih': gunKey,
+      String kTar = kayit['tarih']?.toString() ?? "";
+      if (kTar.startsWith(ayKey)) {
+        double kaz = (kayit['kazanc'] ?? 0.0).toDouble();
+        double tSa = (kayit['toplamSaat'] ?? 0.0).toDouble();
+        euroS += kaz;
+        if (kayit['konaklamaGun'] == 0) saatS += tSa;
+        String gKey = kTar.substring(0, 10);
+        if (!geciciG.containsKey(gKey)) {
+          geciciG[gKey] = {
+            'tarih': gKey,
             'toplamMaas': 0.0,
             'toplamHarcirah': 0.0,
             'toplamSaat': 0.0,
@@ -352,30 +401,25 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
             'hasMaas': false,
           };
         }
-
         if (kayit['konaklamaGun'] == 0) {
-          geciciGruplama[gunKey]!['toplamMaas'] =
-              (geciciGruplama[gunKey]!['toplamMaas'] ?? 0.0) + kazanc;
-          geciciGruplama[gunKey]!['toplamSaat'] =
-              (geciciGruplama[gunKey]!['toplamSaat'] ?? 0.0) + tSaat;
-          geciciGruplama[gunKey]!['hasMaas'] = true;
+          geciciG[gKey]!['toplamMaas'] += kaz;
+          geciciG[gKey]!['toplamSaat'] += tSa;
+          geciciG[gKey]!['hasMaas'] = true;
         } else {
-          geciciGruplama[gunKey]!['toplamHarcirah'] =
-              (geciciGruplama[gunKey]!['toplamHarcirah'] ?? 0.0) + kazanc;
-          geciciGruplama[gunKey]!['hasHarcirah'] = true;
+          geciciG[gKey]!['toplamHarcirah'] += kaz;
+          geciciG[gKey]!['hasHarcirah'] = true;
         }
       }
     }
-    int sonGun = DateTime(_seciliAy.year, _seciliAy.month + 1, 0).day;
-    List<DateTime> geciciGunler = List.generate(
-      sonGun,
-      (i) => DateTime(_seciliAy.year, _seciliAy.month, i + 1),
-    );
+    int sonG = DateTime(_seciliAy.year, _seciliAy.month + 1, 0).day;
     setState(() {
-      gunlukOzetlerMap = geciciGruplama;
-      ayinTumGunleri = geciciGunler.reversed.toList();
-      aylikToplamEuro = euroSayaci;
-      aylikToplamSaat = saatSayaci;
+      gunlukOzetlerMap = geciciG;
+      ayinTumGunleri = List.generate(
+        sonG,
+        (i) => DateTime(_seciliAy.year, _seciliAy.month, i + 1),
+      ).reversed.toList();
+      aylikToplamEuro = euroS;
+      aylikToplamSaat = saatS;
     });
   }
 
@@ -386,6 +430,7 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
     listeyiGuncelle();
   }
 
+  // --- ARAYÜZ BİLEŞENLERİ ---
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -405,10 +450,63 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
           _buildAnaButon(
             baslik: "DİREKSİYON MESAİSİ",
             deger: _anlikWorkKazanc,
-            aktifMi: isWorkActive,
+            aktifMi: isWorkActive && !isBreakActive,
             renk: Colors.orange,
             onTap: _toggleWork,
           ),
+
+          if (isWorkActive) // Canlı Mola Butonu
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
+              child: InkWell(
+                onTap: () => setState(() => isBreakActive = !isBreakActive),
+                child: Container(
+                  height: 65,
+                  decoration: BoxDecoration(
+                    color: isBreakActive
+                        ? Colors.redAccent
+                        : Colors.blueGrey[700],
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        isBreakActive
+                            ? Icons.pause_circle_filled
+                            : Icons.coffee,
+                        color: Colors.white,
+                        size: 28,
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        isBreakActive ? "MOLA SAYILIYOR..." : "MOLA VER",
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                      const VerticalDivider(
+                        color: Colors.white24,
+                        indent: 15,
+                        endIndent: 15,
+                        width: 30,
+                      ),
+                      Text(
+                        "${(_molaSaniye ~/ 60)} dk",
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
           _buildAnaButon(
             baslik: "TIRDA KONAKLAMA (NET)",
             deger: _anlikStayKazanc,
@@ -420,88 +518,6 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
           Expanded(child: _buildKayitListesi()),
         ],
       ),
-    );
-  }
-
-  Widget _buildKayitListesi() {
-    return ListView.builder(
-      itemCount: ayinTumGunleri.length,
-      itemBuilder: (context, index) {
-        final DateTime tarihDT = ayinTumGunleri[index];
-        final String gunKey = DateFormat('yyyy-MM-dd').format(tarihDT);
-        final gunData = gunlukOzetlerMap[gunKey];
-        bool isWeekend =
-            tarihDT.weekday == DateTime.saturday ||
-            tarihDT.weekday == DateTime.sunday;
-        String gunAdi = DateFormat('EEEE').format(tarihDT).substring(0, 3);
-
-        return Column(
-          children: [
-            Container(
-              margin: const EdgeInsets.only(top: 15, bottom: 5),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              decoration: BoxDecoration(
-                color: isWeekend ? Colors.red[700] : Colors.blueGrey[800],
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Text(
-                "${tarihDT.day} $gunAdi",
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: gunData != null && gunData['hasMaas']
-                        ? InkWell(
-                            onLongPress: () => _gunuSilOnay(gunKey, true),
-                            onTap: () => _guncellemePaneli(
-                              gunKey,
-                              true,
-                              gunData['toplamMaas'],
-                              gunData['toplamSaat'],
-                            ),
-                            child: _gunlukKart(
-                              gunData['toplamMaas'],
-                              "${gunData['toplamSaat'].toStringAsFixed(1)} Saat",
-                              Colors.orange,
-                              true,
-                            ),
-                          )
-                        : _bosGunButonu(gunKey, true),
-                  ),
-                  const SizedBox(width: 15),
-                  Expanded(
-                    child: gunData != null && gunData['hasHarcirah']
-                        ? InkWell(
-                            onLongPress: () => _gunuSilOnay(gunKey, false),
-                            onTap: () => _guncellemePaneli(
-                              gunKey,
-                              false,
-                              gunData['toplamHarcirah'],
-                              24,
-                            ),
-                            child: _gunlukKart(
-                              gunData['toplamHarcirah'],
-                              "Net Harcırah",
-                              Colors.blue[800]!,
-                              false,
-                            ),
-                          )
-                        : _bosGunButonu(gunKey, false),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        );
-      },
     );
   }
 
@@ -526,24 +542,19 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
     );
   }
 
-  Widget _ozetSutun(String baslik, String deger) {
-    return Column(
-      children: [
-        Text(
-          baslik,
-          style: const TextStyle(color: Colors.white70, fontSize: 10),
+  Widget _ozetSutun(String b, String d) => Column(
+    children: [
+      Text(b, style: const TextStyle(color: Colors.white70, fontSize: 10)),
+      Text(
+        d,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 22,
+          fontWeight: FontWeight.bold,
         ),
-        Text(
-          deger,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ],
-    );
-  }
+      ),
+    ],
+  );
 
   Widget _buildAnaButon({
     required String baslik,
@@ -565,19 +576,18 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
-              aktifMi ? "KAYDET VE BİTİR" : baslik,
+              aktifMi ? "KAYIT DEVAM EDİYOR..." : baslik,
               style: const TextStyle(
                 color: Colors.white70,
                 fontSize: 10,
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 4),
             Text(
               "€${deger.toStringAsFixed(4)}",
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 24,
+                fontSize: 26,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -587,177 +597,145 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
     );
   }
 
-  Widget _buildAyNavigasyon() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back_ios, size: 20),
-            onPressed: () => _ayDegistir(-1),
-          ),
-          Text(
-            DateFormat('MMMM yyyy').format(_seciliAy).toUpperCase(),
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-          ),
-          IconButton(
-            icon: const Icon(Icons.arrow_forward_ios, size: 20),
-            onPressed: () => _ayDegistir(1),
-          ),
-        ],
-      ),
+  Widget _buildAyNavigasyon() => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        IconButton(
+          icon: const Icon(Icons.arrow_back_ios, size: 20),
+          onPressed: () => _ayDegistir(-1),
+        ),
+        Text(
+          DateFormat('MMMM yyyy').format(_seciliAy).toUpperCase(),
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        ),
+        IconButton(
+          icon: const Icon(Icons.arrow_forward_ios, size: 20),
+          onPressed: () => _ayDegistir(1),
+        ),
+      ],
+    ),
+  );
+
+  Widget _buildKayitListesi() {
+    return ListView.builder(
+      itemCount: ayinTumGunleri.length,
+      itemBuilder: (context, index) {
+        final tarihDT = ayinTumGunleri[index];
+        final gunKey = DateFormat('yyyy-MM-dd').format(tarihDT);
+        final gunData = gunlukOzetlerMap[gunKey];
+        bool isWk = tarihDT.weekday > 5;
+        return Column(
+          children: [
+            Container(
+              margin: const EdgeInsets.only(top: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+              decoration: BoxDecoration(
+                color: isWk ? Colors.red[700] : Colors.blueGrey[800],
+                borderRadius: BorderRadius.circular(5),
+              ),
+              child: Text(
+                "${tarihDT.day} ${DateFormat('EEEE').format(tarihDT).substring(0, 3)}",
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 9,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: gunData != null && gunData['hasMaas']
+                        ? InkWell(
+                            onLongPress: () => _gunuSilOnay(gunKey, true),
+                            onTap: () => _guncellemePaneli(
+                              gunKey,
+                              true,
+                              gunData['toplamMaas'],
+                              gunData['toplamSaat'],
+                            ),
+                            child: _gunlukKart(
+                              gunData['toplamMaas'],
+                              "${gunData['toplamSaat'].toStringAsFixed(1)} h",
+                              Colors.orange,
+                              true,
+                            ),
+                          )
+                        : _bosGunBtn(gunKey, true),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: gunData != null && gunData['hasHarcirah']
+                        ? InkWell(
+                            onLongPress: () => _gunuSilOnay(gunKey, false),
+                            onTap: () => _guncellemePaneli(
+                              gunKey,
+                              false,
+                              gunData['toplamHarcirah'],
+                              24,
+                            ),
+                            child: _gunlukKart(
+                              gunData['toplamHarcirah'],
+                              "Harcırah",
+                              Colors.blue[800]!,
+                              false,
+                            ),
+                          )
+                        : _bosGunBtn(gunKey, false),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
-  Widget _bosGunButonu(String gunKey, bool isWork) {
-    return InkWell(
-      onTap: () => _guncellemePaneli(gunKey, isWork, 0.0, 0.0),
-      child: Container(
-        height: 45,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: isWork
-                ? Colors.orange.withOpacity(0.3)
-                : Colors.blue.withOpacity(0.3),
-          ),
-        ),
-        child: Icon(
-          isWork ? Icons.drive_eta_rounded : Icons.bed_rounded,
-          size: 18,
-          color: isWork ? Colors.orange[200] : Colors.blue[200],
-        ),
-      ),
-    );
-  }
-
-  Widget _gunlukKart(double miktar, String altMetin, Color renk, bool isLeft) {
-    return Container(
-      padding: const EdgeInsets.all(10),
+  Widget _bosGunBtn(String k, bool w) => InkWell(
+    onTap: () => _guncellemePaneli(k, w, 0.0, 0.0),
+    child: Container(
+      height: 40,
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border(
-          left: isLeft ? BorderSide(color: renk, width: 4) : BorderSide.none,
-          right: !isLeft ? BorderSide(color: renk, width: 4) : BorderSide.none,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: w
+              ? Colors.orange.withOpacity(0.2)
+              : Colors.blue.withOpacity(0.2),
         ),
       ),
-      child: Column(
-        crossAxisAlignment: isLeft
-            ? CrossAxisAlignment.end
-            : CrossAxisAlignment.start,
-        children: [
-          Text(
-            "€${miktar.toStringAsFixed(2)}",
-            style: TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.bold,
-              color: renk,
-            ),
-          ),
-          Text(
-            altMetin,
-            style: const TextStyle(fontSize: 9, color: Colors.black54),
-          ),
-        ],
+      child: Icon(
+        w ? Icons.drive_eta : Icons.bed,
+        size: 16,
+        color: Colors.grey[300],
       ),
-    );
-  }
+    ),
+  );
 
-  void _toggleWork() {
-    setState(() {
-      isWorkActive = !isWorkActive;
-      if (isWorkActive) {
-        _workSaniye = 0;
-        _workTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-          _workSaniye++;
-          setState(
-            () =>
-                _anlikWorkKazanc += CalculatorService.anlikSaniyelikKazancGetir(
-                  isWork: true,
-                  gecenSaniye: _workSaniye,
-                ),
-          );
-        });
-      } else {
-        _workTimer?.cancel();
-        _kaydetVeSifirla(true);
-      }
-    });
-  }
-
-  void _toggleStay() {
-    setState(() {
-      isStayActive = !isStayActive;
-      if (isStayActive) {
-        _staySaniye = 0;
-        _stayTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-          _staySaniye++;
-          setState(() {
-            if (_staySaniye <= 14400) {
-              _anlikStayKazanc = 0.0;
-            } else {
-              _anlikStayKazanc += 40.0 / 86400.0;
-            }
-          });
-        });
-      } else {
-        _stayTimer?.cancel();
-        _kaydetVeSifirla(false);
-      }
-    });
-  }
-
-  Future<void> _kaydetVeSifirla(bool isWork) async {
-    final db = await DbHelper.instance.database;
-    String bugunKey = DateFormat('yyyy-MM-dd').format(DateTime.now());
-    int tip = isWork ? 0 : 1;
-    List<Map<String, dynamic>> mevcutKayitlar = await db.query(
-      'mesailer',
-      where: "tarih LIKE ? AND konaklamaGun = ?",
-      whereArgs: ['$bugunKey%', tip],
-    );
-
-    double toplamGecenSaat = (isWork ? _workSaniye : _staySaniye) / 3600;
-    double sonKazanc = isWork
-        ? _anlikWorkKazanc
-        : (_staySaniye > 14400 ? _anlikStayKazanc : 0.0);
-
-    if (mevcutKayitlar.isNotEmpty) {
-      double eskiSaat = (mevcutKayitlar.first['toplamSaat'] ?? 0.0).toDouble();
-      double eskiKazanc = (mevcutKayitlar.first['kazanc'] ?? 0.0).toDouble();
-      await db.update(
-        'mesailer',
-        {
-          'toplamSaat': double.parse(
-            (eskiSaat + toplamGecenSaat).toStringAsFixed(2),
-          ),
-          'kazanc': double.parse((eskiKazanc + sonKazanc).toStringAsFixed(2)),
-          'tarih': DateTime.now().toString(),
-        },
-        where: "id = ?",
-        whereArgs: [mevcutKayitlar.first['id']],
-      );
-    } else {
-      await DbHelper.instance.mesaiKaydet({
-        'tarih': DateTime.now().toString(),
-        'toplamSaat': double.parse(toplamGecenSaat.toStringAsFixed(2)),
-        'geceSaati': 0.0,
-        'konaklamaGun': tip,
-        'kazanc': double.parse(sonKazanc.toStringAsFixed(2)),
-      });
-    }
-    setState(() {
-      if (isWork) {
-        _anlikWorkKazanc = 0.0;
-        _workSaniye = 0;
-      } else {
-        _anlikStayKazanc = 0.0;
-        _staySaniye = 0;
-      }
-    });
-    listeyiGuncelle();
-  }
+  Widget _gunlukKart(double m, String a, Color r, bool l) => Container(
+    padding: const EdgeInsets.all(8),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(10),
+      border: Border(
+        left: l ? BorderSide(color: r, width: 4) : BorderSide.none,
+        right: !l ? BorderSide(color: r, width: 4) : BorderSide.none,
+      ),
+    ),
+    child: Column(
+      crossAxisAlignment: l ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+      children: [
+        Text(
+          "€${m.toStringAsFixed(2)}",
+          style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: r),
+        ),
+        Text(a, style: const TextStyle(fontSize: 9, color: Colors.black54)),
+      ],
+    ),
+  );
 }
