@@ -52,9 +52,18 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
   ) {
     DateTime baslangicTarihi = DateTime.parse(gunKey);
     DateTime bitisTarihi = DateTime.parse(gunKey);
-    TimeOfDay baslangicSaat = const TimeOfDay(hour: 8, minute: 0);
-    TimeOfDay bitisSaat = const TimeOfDay(hour: 17, minute: 0);
-    int molaDakika = 60; // Manuel girişte varsayılan 60 dk
+
+    // Başlangıç Saati (mevcutSaat'ten geliyor)
+    int bH = mevcutSaat.toInt();
+    int bM = ((mevcutSaat - bH) * 60).round();
+    TimeOfDay baslangicSaat = TimeOfDay(hour: bH % 24, minute: bM);
+
+    // Bitiş Saati (mevcutMiktar'dan geliyor)
+    int fH = mevcutMiktar.toInt();
+    int fM = ((mevcutMiktar - fH) * 60).round();
+    TimeOfDay bitisSaat = TimeOfDay(hour: fH % 24, minute: fM);
+
+    int molaDakika = 60;
 
     showModalBottomSheet(
       context: context,
@@ -116,7 +125,7 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
                     final date = await showDatePicker(
                       context: context,
                       initialDate: bitisTarihi,
-                      firstDate: baslangicTarihi,
+                      firstDate: DateTime(2024),
                       lastDate: DateTime(2030),
                     );
                     if (date != null) {
@@ -199,6 +208,13 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
                           padding: const EdgeInsets.all(15),
                         ),
                         onPressed: () async {
+                          final db = await DbHelper.instance.database;
+                          await db.delete(
+                            'mesailer',
+                            where: "tarih LIKE ? AND konaklamaGun = ?",
+                            whereArgs: ['$gunKey%', isWork ? 0 : 1],
+                          );
+
                           await _cokluGunKaydet(
                             baslangicTarihi,
                             bitisTarihi,
@@ -278,15 +294,27 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
 
   // --- VERİTABANI İŞLEMLERİ ---
   Future<void> _kaydetVeSifirla(bool isWork) async {
-    final db = await DbHelper.instance.database;
-    String bugunKey = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    final simdi = DateTime.now();
+    // Başlangıç zamanını saniye farkından geri giderek buluyoruz
+    final baslangicZamani = simdi.subtract(
+      Duration(seconds: isWork ? _workSaniye : _staySaniye),
+    );
+
+    // Saatleri "08:30" formatına getiriyoruz
+    String bS =
+        "${baslangicZamani.hour.toString().padLeft(2, '0')}:${baslangicZamani.minute.toString().padLeft(2, '0')}";
+    String sS =
+        "${simdi.hour.toString().padLeft(2, '0')}:${simdi.minute.toString().padLeft(2, '0')}";
+
+    String bugunKey = DateFormat('yyyy-MM-dd').format(simdi);
     int tip = isWork ? 0 : 1;
 
     double toplamGecenSaat = (isWork ? _workSaniye : _staySaniye) / 3600.0;
     double sonKazanc = isWork ? _anlikWorkKazanc : _anlikStayKazanc;
 
     await DbHelper.instance.mesaiKaydet({
-      'tarih': DateTime.now().toString(),
+      // BURASI DÜZELDİ: Artık tarih stringine [08:30-17:00] ekleniyor
+      'tarih': "$bugunKey [$bS-$sS]",
       'toplamSaat': double.parse(toplamGecenSaat.toStringAsFixed(2)),
       'geceSaati': 0.0,
       'konaklamaGun': tip,
