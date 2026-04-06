@@ -59,7 +59,6 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
       ),
       builder: (context) => StatefulBuilder(
         builder: (context, setPanelState) {
-          // Toplam gün farkını hesapla
           int gunFarki = bitisTarihi.difference(baslangicTarihi).inDays;
           bool isCokluGun = gunFarki > 0;
 
@@ -81,7 +80,6 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
                   ),
                 ),
                 const Divider(),
-                // BAŞLANGIÇ
                 ListTile(
                   title: const Text("Başlangıç"),
                   subtitle: Text(
@@ -95,7 +93,6 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
                     if (time != null) setPanelState(() => baslangicSaat = time);
                   },
                 ),
-                // BİTİŞ TARİHİ VE SAATİ
                 ListTile(
                   title: const Text("Bitiş"),
                   subtitle: Text(
@@ -179,7 +176,6 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
     );
   }
 
-  // --- ÇOKLU GÜNÜ VERİTABANINA DAĞITAN MANTIK ---
   Future<void> _cokluGunKaydet(
     DateTime basTarih,
     DateTime bitTarih,
@@ -198,7 +194,6 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
       double gunlukSaat = 0;
 
       if (isWork) {
-        // İş (Direksiyon) Mantığı: Basit saat x 13€
         if (toplamGun == 0) {
           double h =
               bitSaat.hour +
@@ -214,7 +209,6 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
         }
         gunlukKazanc = gunlukSaat * 13.0;
       } else {
-        // HARCIRAH MANTIĞI (Hollanda Meerdaagse Kuralları)
         if (toplamGun == 0) {
           gunlukKazanc = CalculatorService.tekGunlukHarcirahHesapla(
             basSaat.hour,
@@ -226,20 +220,18 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
               (basSaat.hour + (basSaat.minute / 60.0));
         } else {
           if (tempDate == basTarih) {
-            gunlukKazanc = 32.58; // İlk gün (Heenreis)
+            gunlukKazanc = 32.58;
             gunlukSaat = 24.0 - (basSaat.hour + (basSaat.minute / 60.0));
           } else if (tempDate == bitTarih) {
-            gunlukKazanc =
-                14.94; // Son gün (Terugkomst) -> Örnek değer, CalculatorService'den çekilebilir
+            gunlukKazanc = 14.94;
             gunlukSaat = bitSaat.hour + (bitSaat.minute / 60.0);
           } else {
-            gunlukKazanc = 54.44; // Ara gün (Tussendag)
+            gunlukKazanc = 54.44;
             gunlukSaat = 24.0;
           }
         }
       }
 
-      // Veritabanı İşlemi
       int tip = isWork ? 0 : 1;
       List<Map<String, dynamic>> mevcut = await db.query(
         'mesailer',
@@ -265,12 +257,10 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
           whereArgs: [mevcut.first['id']],
         );
       }
-
       tempDate = tempDate.add(const Duration(days: 1));
     }
   }
 
-  // --- SİLME ONAYI ---
   void _gunuSilOnay(String gunKey, bool isWork) {
     showDialog(
       context: context,
@@ -308,11 +298,17 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
     String seciliAyKey = DateFormat('yyyy-MM').format(_seciliAy);
 
     for (var kayit in veriler) {
-      String kayitTarih = kayit['tarih'].toString();
+      String kayitTarih = kayit['tarih']?.toString() ?? "";
       if (kayitTarih.startsWith(seciliAyKey)) {
-        euroSayaci += (kayit['kazanc'] ?? 0.0);
-        saatSayaci += (kayit['toplamSaat'] ?? 0.0);
+        double kazanc = (kayit['kazanc'] ?? 0.0).toDouble();
+        double tSaat = (kayit['toplamSaat'] ?? 0.0).toDouble();
+
+        euroSayaci += kazanc;
+        saatSayaci += tSaat;
+
         String gunKey = kayitTarih.substring(0, 10);
+
+        // --- HATA BURADAYDI: EĞER GÜN YOKSA ÖNCE OLUŞTURUYORUZ ---
         if (!geciciGruplama.containsKey(gunKey)) {
           geciciGruplama[gunKey] = {
             'tarih': gunKey,
@@ -323,12 +319,16 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
             'hasMaas': false,
           };
         }
+
         if (kayit['konaklamaGun'] == 0) {
-          geciciGruplama[gunKey]!['toplamMaas'] += kayit['kazanc'];
-          geciciGruplama[gunKey]!['toplamSaat'] += kayit['toplamSaat'];
+          geciciGruplama[gunKey]!['toplamMaas'] =
+              (geciciGruplama[gunKey]!['toplamMaas'] ?? 0.0) + kazanc;
+          geciciGruplama[gunKey]!['toplamSaat'] =
+              (geciciGruplama[gunKey]!['toplamSaat'] ?? 0.0) + tSaat;
           geciciGruplama[gunKey]!['hasMaas'] = true;
         } else {
-          geciciGruplama[gunKey]!['toplamHarcirah'] += kayit['kazanc'];
+          geciciGruplama[gunKey]!['toplamHarcirah'] =
+              (geciciGruplama[gunKey]!['toplamHarcirah'] ?? 0.0) + kazanc;
           geciciGruplama[gunKey]!['hasHarcirah'] = true;
         }
       }
@@ -338,6 +338,7 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
       sonGun,
       (i) => DateTime(_seciliAy.year, _seciliAy.month, i + 1),
     );
+
     setState(() {
       gunlukOzetlerMap = geciciGruplama;
       ayinTumGunleri = geciciGunler.reversed.toList();
@@ -681,6 +682,7 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
     final db = await DbHelper.instance.database;
     String bugunKey = DateFormat('yyyy-MM-dd').format(DateTime.now());
     int tip = isWork ? 0 : 1;
+
     List<Map<String, dynamic>> mevcutKayitlar = await db.query(
       'mesailer',
       where: "tarih LIKE ? AND konaklamaGun = ?",
@@ -693,8 +695,9 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
         : (_staySaniye > 14400 ? _anlikStayKazanc : 0.0);
 
     if (mevcutKayitlar.isNotEmpty) {
-      double eskiSaat = mevcutKayitlar.first['toplamSaat'] ?? 0.0;
-      double eskiKazanc = mevcutKayitlar.first['kazanc'] ?? 0.0;
+      double eskiSaat = (mevcutKayitlar.first['toplamSaat'] ?? 0.0).toDouble();
+      double eskiKazanc = (mevcutKayitlar.first['kazanc'] ?? 0.0).toDouble();
+
       await db.update(
         'mesailer',
         {
@@ -716,12 +719,13 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
         'kazanc': double.parse(sonKazanc.toStringAsFixed(2)),
       });
     }
+
     setState(() {
       if (isWork) {
         _anlikWorkKazanc = 0.0;
         _workSaniye = 0;
       } else {
-        _anlikStayKazanc = 0.0;
+        _anlikStayKazanc = 0.0; // Buradaki hatalı ismi düzelttim
         _staySaniye = 0;
       }
     });
