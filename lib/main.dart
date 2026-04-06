@@ -73,7 +73,7 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  isCokluGun ? "Çoklu Gün Girişi" : "$gunKey Düzenle",
+                  isCokluGun ? "Çoklu Gün Seferi" : "$gunKey Düzenle",
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 18,
@@ -81,20 +81,32 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
                 ),
                 const Divider(),
                 ListTile(
-                  title: const Text("Başlangıç"),
+                  title: const Text("Başlangıç Zamanı"),
                   subtitle: Text(
                     "${DateFormat('dd/MM').format(baslangicTarihi)} - ${baslangicSaat.format(context)}",
                   ),
                   onTap: () async {
-                    final time = await showTimePicker(
+                    final date = await showDatePicker(
                       context: context,
-                      initialTime: baslangicSaat,
+                      initialDate: baslangicTarihi,
+                      firstDate: DateTime(2024),
+                      lastDate: DateTime(2030),
                     );
-                    if (time != null) setPanelState(() => baslangicSaat = time);
+                    if (date != null) {
+                      final time = await showTimePicker(
+                        context: context,
+                        initialTime: baslangicSaat,
+                      );
+                      if (time != null)
+                        setPanelState(() {
+                          baslangicTarihi = date;
+                          baslangicSaat = time;
+                        });
+                    }
                   },
                 ),
                 ListTile(
-                  title: const Text("Bitiş"),
+                  title: const Text("Bitiş Zamanı"),
                   subtitle: Text(
                     "${DateFormat('dd/MM').format(bitisTarihi)} - ${bitisSaat.format(context)}",
                   ),
@@ -110,12 +122,11 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
                         context: context,
                         initialTime: bitisSaat,
                       );
-                      if (time != null) {
+                      if (time != null)
                         setPanelState(() {
                           bitisTarihi = date;
                           bitisSaat = time;
                         });
-                      }
                     }
                   },
                 ),
@@ -160,8 +171,11 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
                           listeyiGuncelle();
                         },
                         child: const Text(
-                          "TÜM GÜNLERİ KAYDET",
-                          style: TextStyle(color: Colors.white),
+                          "SEFERİ KAYDET",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ),
@@ -185,50 +199,71 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
     int mola,
   ) async {
     final db = await DbHelper.instance.database;
-    DateTime tempDate = basTarih;
-    int toplamGun = bitTarih.difference(basTarih).inDays;
+    // Saatleri tarihlere giydirelim
+    DateTime startDT = DateTime(
+      basTarih.year,
+      basTarih.month,
+      basTarih.day,
+      basSaat.hour,
+      basSaat.minute,
+    );
+    DateTime endDT = DateTime(
+      bitTarih.year,
+      bitTarih.month,
+      bitTarih.day,
+      bitSaat.hour,
+      bitSaat.minute,
+    );
 
-    while (tempDate.isBefore(bitTarih) || tempDate.isAtSameMomentAs(bitTarih)) {
+    DateTime tempDate = DateTime(basTarih.year, basTarih.month, basTarih.day);
+    DateTime lastDate = DateTime(bitTarih.year, bitTarih.month, bitTarih.day);
+
+    int toplamGunFarki = lastDate.difference(tempDate).inDays;
+
+    while (tempDate.isBefore(lastDate) || tempDate.isAtSameMomentAs(lastDate)) {
       String currentKey = DateFormat('yyyy-MM-dd').format(tempDate);
       double gunlukKazanc = 0;
       double gunlukSaat = 0;
 
       if (isWork) {
-        if (toplamGun == 0) {
-          double h =
-              bitSaat.hour +
-              (bitSaat.minute / 60.0) -
-              (basSaat.hour + (basSaat.minute / 60.0));
-          gunlukSaat = h - (mola / 60.0);
-        } else if (tempDate == basTarih) {
-          gunlukSaat = 24.0 - (basSaat.hour + (basSaat.minute / 60.0));
-        } else if (tempDate == bitTarih) {
-          gunlukSaat = (bitSaat.hour + (bitSaat.minute / 60.0));
+        // --- DİREKSİYON HESABI ---
+        if (toplamGunFarki == 0) {
+          gunlukSaat =
+              (endDT.difference(startDT).inMinutes / 60.0) - (mola / 60.0);
+        } else if (tempDate.isAtSameMomentAs(
+          tempDate == basTarih ? tempDate : DateTime(0),
+        )) {
+          // İlk gün
+          gunlukSaat = 24.0 - (basSaat.hour + basSaat.minute / 60.0);
+        } else if (tempDate.isAtSameMomentAs(lastDate)) {
+          // Son gün
+          gunlukSaat = (bitSaat.hour + bitSaat.minute / 60.0);
         } else {
+          // Ara günler
           gunlukSaat = 24.0;
         }
         gunlukKazanc = gunlukSaat * 13.0;
       } else {
-        if (toplamGun == 0) {
+        // --- HARCIRAH HESABI (2026 TABLO UYUMLU) ---
+        if (toplamGunFarki == 0) {
           gunlukKazanc = CalculatorService.tekGunlukHarcirahHesapla(
             basSaat.hour,
             bitSaat.hour,
           );
-          gunlukSaat =
-              bitSaat.hour +
-              (bitSaat.minute / 60.0) -
-              (basSaat.hour + (basSaat.minute / 60.0));
+          gunlukSaat = (endDT.difference(startDT).inMinutes / 60.0);
+        } else if (tempDate.year == basTarih.year &&
+            tempDate.month == basTarih.month &&
+            tempDate.day == basTarih.day) {
+          gunlukKazanc = CalculatorService.ilkGunTablo[basSaat.hour] ?? 0.0;
+          gunlukSaat = 24.0 - (basSaat.hour + basSaat.minute / 60.0);
+        } else if (tempDate.year == bitTarih.year &&
+            tempDate.month == bitTarih.month &&
+            tempDate.day == bitTarih.day) {
+          gunlukKazanc = CalculatorService.sonGunTablo[bitSaat.hour] ?? 0.0;
+          gunlukSaat = (bitSaat.hour + bitSaat.minute / 60.0);
         } else {
-          if (tempDate == basTarih) {
-            gunlukKazanc = 32.58;
-            gunlukSaat = 24.0 - (basSaat.hour + (basSaat.minute / 60.0));
-          } else if (tempDate == bitTarih) {
-            gunlukKazanc = 14.94;
-            gunlukSaat = bitSaat.hour + (bitSaat.minute / 60.0);
-          } else {
-            gunlukKazanc = 54.44;
-            gunlukSaat = 24.0;
-          }
+          gunlukKazanc = 65.04; // 2026 Tam gün (Tussendag)
+          gunlukSaat = 24.0;
         }
       }
 
@@ -257,6 +292,7 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
           whereArgs: [mevcut.first['id']],
         );
       }
+
       tempDate = tempDate.add(const Duration(days: 1));
     }
   }
@@ -266,7 +302,7 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text("${isWork ? 'Direksiyon' : 'Konaklama'} Sil"),
-        content: const Text("Bu işlem geri alınamaz. Emin misiniz?"),
+        content: const Text("Bu kayıt silinecek. Emin misiniz?"),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -302,13 +338,10 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
       if (kayitTarih.startsWith(seciliAyKey)) {
         double kazanc = (kayit['kazanc'] ?? 0.0).toDouble();
         double tSaat = (kayit['toplamSaat'] ?? 0.0).toDouble();
-
         euroSayaci += kazanc;
-        saatSayaci += tSaat;
+        if (kayit['konaklamaGun'] == 0) saatSayaci += tSaat;
 
         String gunKey = kayitTarih.substring(0, 10);
-
-        // --- HATA BURADAYDI: EĞER GÜN YOKSA ÖNCE OLUŞTURUYORUZ ---
         if (!geciciGruplama.containsKey(gunKey)) {
           geciciGruplama[gunKey] = {
             'tarih': gunKey,
@@ -338,7 +371,6 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
       sonGun,
       (i) => DateTime(_seciliAy.year, _seciliAy.month, i + 1),
     );
-
     setState(() {
       gunlukOzetlerMap = geciciGruplama;
       ayinTumGunleri = geciciGunler.reversed.toList();
@@ -682,7 +714,6 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
     final db = await DbHelper.instance.database;
     String bugunKey = DateFormat('yyyy-MM-dd').format(DateTime.now());
     int tip = isWork ? 0 : 1;
-
     List<Map<String, dynamic>> mevcutKayitlar = await db.query(
       'mesailer',
       where: "tarih LIKE ? AND konaklamaGun = ?",
@@ -697,7 +728,6 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
     if (mevcutKayitlar.isNotEmpty) {
       double eskiSaat = (mevcutKayitlar.first['toplamSaat'] ?? 0.0).toDouble();
       double eskiKazanc = (mevcutKayitlar.first['kazanc'] ?? 0.0).toDouble();
-
       await db.update(
         'mesailer',
         {
@@ -719,13 +749,12 @@ class _TruckTrackAppState extends State<TruckTrackApp> {
         'kazanc': double.parse(sonKazanc.toStringAsFixed(2)),
       });
     }
-
     setState(() {
       if (isWork) {
         _anlikWorkKazanc = 0.0;
         _workSaniye = 0;
       } else {
-        _anlikStayKazanc = 0.0; // Buradaki hatalı ismi düzelttim
+        _anlikStayKazanc = 0.0;
         _staySaniye = 0;
       }
     });
